@@ -125,14 +125,14 @@
         const toggleVideoBtn = document.getElementById('toggle-video');
         const endCallBtn = document.getElementById('end-call');
 
-        let localStream;
-        let peers = {}; // Keep track of connected peers
+        let localStream = null; // Default to null initially
+        let peers = {}; 
 
         // Create HTML Video Element for Local User
         const myVideo = document.createElement('video');
-        myVideo.muted = true; // MUST mute local video to prevent audio feedback loop
+        myVideo.muted = true; 
 
-        // 1. Initialize PeerJS with Google STUN Servers
+        // 1. Initialize PeerJS
         const peer = new Peer(undefined, {
             config: {
                 'iceServers': [
@@ -149,17 +149,16 @@
             document.getElementById('connection-status').classList.remove('bg-techBlue', 'w-1/2');
         });
 
-        // 3. Get Local Camera & Microphone Access
-        navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true
-        }).then(stream => {
-            localStream = stream;
-            addVideoStream(myVideo, stream, true);
-
-            // 4. Listen for Incoming Calls
+        // Function to handle incoming calls (works even without camera)
+        function setupCallListeners() {
             peer.on('call', call => {
-                call.answer(stream); // Answer call with local stream
+                // Answer with stream if available, otherwise answer empty (Viewer Mode)
+                if (localStream) {
+                    call.answer(localStream);
+                } else {
+                    call.answer(); 
+                }
+                
                 const video = document.createElement('video');
                 
                 call.on('stream', userVideoStream => {
@@ -172,22 +171,46 @@
 
                 peers[call.peer] = call;
             });
+        }
+
+        // 3. Try getting Local Camera & Microphone Access
+        navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true
+        }).then(stream => {
+            localStream = stream;
+            addVideoStream(myVideo, stream, true);
+            setupCallListeners(); // Start listening for calls
         }).catch(err => {
-            console.error("Failed to get local stream", err);
-            alert("Camera or Microphone access denied!");
+            console.warn("No Camera or Microphone found. Entering Viewer Mode.", err);
+            
+            // Show "No Camera Detected" box instead of video
+            const wrapper = document.createElement('div');
+            wrapper.className = 'relative glass-panel rounded-2xl overflow-hidden shadow-lg border-techOrange/30 flex items-center justify-center bg-black min-h-[250px]';
+            wrapper.innerHTML = '<span class="text-techOrange font-bold tracking-widest text-xs uppercase">No Camera Detected<br><span class="text-slate-500 mt-2 block">(Viewer Mode)</span></span>';
+            videoGrid.appendChild(wrapper);
+
+            // Disable buttons
+            toggleAudioBtn.disabled = true;
+            toggleVideoBtn.disabled = true;
+            toggleAudioBtn.classList.add('opacity-30', 'cursor-not-allowed');
+            toggleVideoBtn.classList.add('opacity-30', 'cursor-not-allowed');
+
+            setupCallListeners(); // Start listening for calls even without camera
         });
 
-        // 5. Connect to a Remote Peer
+        // 4. Connect to a Remote Peer
         joinBtn.addEventListener('click', () => {
             const remoteId = joinInput.value.trim();
-            if (remoteId && localStream) {
+            if (remoteId) {
                 connectToNewUser(remoteId, localStream);
-                joinInput.value = ''; // clear input
+                joinInput.value = ''; 
             }
         });
 
         function connectToNewUser(userId, stream) {
-            const call = peer.call(userId, stream);
+            // Call with stream if we have it, otherwise call empty
+            const call = stream ? peer.call(userId, stream) : peer.call(userId);
             const video = document.createElement('video');
             
             call.on('stream', userVideoStream => {
@@ -208,12 +231,10 @@
                 video.play();
             });
             
-            // Create a wrapper for the glass effect
             const wrapper = document.createElement('div');
-            wrapper.className = 'relative glass-panel rounded-2xl overflow-hidden shadow-lg';
+            wrapper.className = 'relative glass-panel rounded-2xl overflow-hidden shadow-lg min-h-[250px]';
             if(isLocal) wrapper.classList.add('border-techBlue/30');
 
-            // Add identifier tag
             const tag = document.createElement('div');
             tag.className = 'absolute bottom-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg text-xs font-bold tracking-widest uppercase z-10 border border-white/10';
             tag.innerText = isLocal ? 'You' : 'Remote Peer';
@@ -226,29 +247,30 @@
 
         // Controls Logic
         toggleAudioBtn.addEventListener('click', () => {
+            if (!localStream) return; // Prevent error if no hardware
             const audioTrack = localStream.getAudioTracks()[0];
-            if (audioTrack.enabled) {
+            if (audioTrack && audioTrack.enabled) {
                 audioTrack.enabled = false;
                 toggleAudioBtn.classList.add('text-red-500', 'border-red-500/50');
-            } else {
+            } else if (audioTrack) {
                 audioTrack.enabled = true;
                 toggleAudioBtn.classList.remove('text-red-500', 'border-red-500/50');
             }
         });
 
         toggleVideoBtn.addEventListener('click', () => {
+            if (!localStream) return; // Prevent error if no hardware
             const videoTrack = localStream.getVideoTracks()[0];
-            if (videoTrack.enabled) {
+            if (videoTrack && videoTrack.enabled) {
                 videoTrack.enabled = false;
                 toggleVideoBtn.classList.add('text-red-500', 'border-red-500/50');
-            } else {
+            } else if (videoTrack) {
                 videoTrack.enabled = true;
                 toggleVideoBtn.classList.remove('text-red-500', 'border-red-500/50');
             }
         });
 
         endCallBtn.addEventListener('click', () => {
-            // Close all connections and reload the page to reset
             for (let conId in peers) {
                 peers[conId].close();
             }
