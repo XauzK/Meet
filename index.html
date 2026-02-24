@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinitum Meet | P2P Conference</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Space Grotesk', 'sans-serif'] },
+                    colors: {
+                        techBlue: '#00F0FF',
+                        techOrange: '#FF6B00',
+                        darkBg: '#050505',
+                        panelBg: 'rgba(15, 23, 42, 0.4)'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #050505; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #00F0FF; }
+        
+        /* Glassmorphism Styles */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.4);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Video Element Styling */
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 1rem;
+            transform: scaleX(-1); /* Mirror effect for natural feel */
+            background-color: #000;
+        }
+    </style>
+</head>
+<body class="bg-darkBg text-slate-300 antialiased h-screen flex flex-col overflow-hidden selection:bg-techBlue selection:text-black">
+
+    <nav class="w-full z-50 bg-darkBg/90 backdrop-blur-xl border-b border-white/5 h-20 flex items-center justify-between px-6 shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full border border-techBlue shadow-[0_0_15px_rgba(0,240,255,0.3)] flex items-center justify-center text-techBlue font-bold">
+                IM
+            </div>
+            <span class="text-xl font-bold text-white tracking-[0.2em]">
+                INFINITUM <span class="text-techBlue">MEET</span>
+            </span>
+        </div>
+        <div class="text-xs tracking-widest text-slate-500 font-mono">SECURE P2P MESH</div>
+    </nav>
+
+    <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
+        
+        <div class="w-full md:w-80 glass-panel border-r border-t-0 border-b-0 border-l-0 border-white/5 p-6 flex flex-col gap-8 shrink-0 overflow-y-auto">
+            
+            <div>
+                <h3 class="text-techBlue text-xs font-bold tracking-[0.2em] uppercase mb-4">Your Identity</h3>
+                <div class="bg-black/50 border border-white/10 p-4 rounded-xl text-center relative overflow-hidden group">
+                    <p class="text-[10px] text-slate-500 tracking-widest uppercase mb-2">Share this Room ID</p>
+                    <code id="my-peer-id" class="text-white font-mono text-lg font-bold block select-all">Generating...</code>
+                    <div class="absolute bottom-0 left-0 h-1 w-full bg-techBlue/20">
+                        <div id="connection-status" class="h-full bg-techBlue w-1/2 transition-all duration-300"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-techBlue text-xs font-bold tracking-[0.2em] uppercase mb-4">Connect</h3>
+                <div class="space-y-3">
+                    <input type="text" id="join-id-input" placeholder="Enter remote ID..." 
+                        class="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-techBlue/50 transition-colors font-mono placeholder:text-slate-600">
+                    <button id="join-btn" class="w-full bg-techBlue hover:bg-white text-black font-bold tracking-widest text-xs uppercase py-3 rounded-xl transition-colors">
+                        Join Call
+                    </button>
+                </div>
+            </div>
+            
+            <div class="mt-auto">
+                <p class="text-[10px] text-slate-600 leading-relaxed text-center">Calls are end-to-end encrypted and routed directly between peers using WebRTC.</p>
+            </div>
+        </div>
+
+        <div class="flex-1 p-6 relative overflow-hidden bg-black/20">
+            <div id="video-grid" class="w-full h-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-fr">
+                </div>
+        </div>
+    </div>
+
+    <div class="h-24 glass-panel border-t border-white/5 flex items-center justify-center gap-6 shrink-0">
+        <button id="toggle-audio" class="w-14 h-14 rounded-2xl bg-black/50 border border-white/10 hover:border-techBlue/50 text-white flex items-center justify-center transition-all group">
+            <svg class="w-6 h-6 group-hover:text-techBlue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+        </button>
+        
+        <button id="toggle-video" class="w-14 h-14 rounded-2xl bg-black/50 border border-white/10 hover:border-techBlue/50 text-white flex items-center justify-center transition-all group">
+            <svg class="w-6 h-6 group-hover:text-techBlue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+        </button>
+
+        <button id="end-call" class="w-14 h-14 rounded-2xl bg-techOrange/20 border border-techOrange hover:bg-techOrange text-white flex items-center justify-center transition-all shadow-[0_0_15px_rgba(255,107,0,0.2)]">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8l2.586-2.586a2 2 0 012.828 2.828L18.828 11M8 16l-2.586 2.586a2 2 0 01-2.828-2.828L5.172 13M8 8l8 8M16 16l-8-8"></path></svg>
+        </button>
+    </div>
+
+    <script>
+        // DOM Elements
+        const videoGrid = document.getElementById('video-grid');
+        const myPeerIdDisplay = document.getElementById('my-peer-id');
+        const joinInput = document.getElementById('join-id-input');
+        const joinBtn = document.getElementById('join-btn');
+        const toggleAudioBtn = document.getElementById('toggle-audio');
+        const toggleVideoBtn = document.getElementById('toggle-video');
+        const endCallBtn = document.getElementById('end-call');
+
+        let localStream;
+        let peers = {}; // Keep track of connected peers
+
+        // Create HTML Video Element for Local User
+        const myVideo = document.createElement('video');
+        myVideo.muted = true; // MUST mute local video to prevent audio feedback loop
+
+        // 1. Initialize PeerJS with Google STUN Servers
+        const peer = new Peer(undefined, {
+            config: {
+                'iceServers': [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ]
+            }
+        });
+
+        // 2. Generate and Display ID
+        peer.on('open', id => {
+            myPeerIdDisplay.innerText = id;
+            document.getElementById('connection-status').classList.add('w-full', 'bg-techGreen');
+            document.getElementById('connection-status').classList.remove('bg-techBlue', 'w-1/2');
+        });
+
+        // 3. Get Local Camera & Microphone Access
+        navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true
+        }).then(stream => {
+            localStream = stream;
+            addVideoStream(myVideo, stream, true);
+
+            // 4. Listen for Incoming Calls
+            peer.on('call', call => {
+                call.answer(stream); // Answer call with local stream
+                const video = document.createElement('video');
+                
+                call.on('stream', userVideoStream => {
+                    addVideoStream(video, userVideoStream);
+                });
+
+                call.on('close', () => {
+                    video.remove();
+                });
+
+                peers[call.peer] = call;
+            });
+        }).catch(err => {
+            console.error("Failed to get local stream", err);
+            alert("Camera or Microphone access denied!");
+        });
+
+        // 5. Connect to a Remote Peer
+        joinBtn.addEventListener('click', () => {
+            const remoteId = joinInput.value.trim();
+            if (remoteId && localStream) {
+                connectToNewUser(remoteId, localStream);
+                joinInput.value = ''; // clear input
+            }
+        });
+
+        function connectToNewUser(userId, stream) {
+            const call = peer.call(userId, stream);
+            const video = document.createElement('video');
+            
+            call.on('stream', userVideoStream => {
+                addVideoStream(video, userVideoStream);
+            });
+            
+            call.on('close', () => {
+                video.remove();
+            });
+
+            peers[userId] = call;
+        }
+
+        // Helper: Inject Video Element into Grid
+        function addVideoStream(video, stream, isLocal = false) {
+            video.srcObject = stream;
+            video.addEventListener('loadedmetadata', () => {
+                video.play();
+            });
+            
+            // Create a wrapper for the glass effect
+            const wrapper = document.createElement('div');
+            wrapper.className = 'relative glass-panel rounded-2xl overflow-hidden shadow-lg';
+            if(isLocal) wrapper.classList.add('border-techBlue/30');
+
+            // Add identifier tag
+            const tag = document.createElement('div');
+            tag.className = 'absolute bottom-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg text-xs font-bold tracking-widest uppercase z-10 border border-white/10';
+            tag.innerText = isLocal ? 'You' : 'Remote Peer';
+            if(isLocal) tag.classList.add('text-techBlue');
+
+            wrapper.appendChild(video);
+            wrapper.appendChild(tag);
+            videoGrid.appendChild(wrapper);
+        }
+
+        // Controls Logic
+        toggleAudioBtn.addEventListener('click', () => {
+            const audioTrack = localStream.getAudioTracks()[0];
+            if (audioTrack.enabled) {
+                audioTrack.enabled = false;
+                toggleAudioBtn.classList.add('text-red-500', 'border-red-500/50');
+            } else {
+                audioTrack.enabled = true;
+                toggleAudioBtn.classList.remove('text-red-500', 'border-red-500/50');
+            }
+        });
+
+        toggleVideoBtn.addEventListener('click', () => {
+            const videoTrack = localStream.getVideoTracks()[0];
+            if (videoTrack.enabled) {
+                videoTrack.enabled = false;
+                toggleVideoBtn.classList.add('text-red-500', 'border-red-500/50');
+            } else {
+                videoTrack.enabled = true;
+                toggleVideoBtn.classList.remove('text-red-500', 'border-red-500/50');
+            }
+        });
+
+        endCallBtn.addEventListener('click', () => {
+            // Close all connections and reload the page to reset
+            for (let conId in peers) {
+                peers[conId].close();
+            }
+            window.location.reload();
+        });
+    </script>
+</body>
+</html>
